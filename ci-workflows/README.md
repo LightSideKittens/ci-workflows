@@ -1,61 +1,65 @@
 # CI Workflows
 
-Общие reusable workflows для iOS сборки и подписи.
+Общие workflows для iOS сборки и подписи.
 
 ## Структура
 
 ```
 ci-workflows/
 ├── .github/workflows/
-│   ├── ios-setup-certificates.yml  # Создание сертификатов (один раз на приложение)
-│   └── ios-build-ipa.yml           # Сборка подписанного IPA
+│   ├── ios-create-certificate.yml  # Один раз на компанию
+│   ├── ios-create-profile.yml      # Для каждого приложения (reusable)
+│   └── ios-build-ipa.yml           # Сборка IPA (reusable)
 └── fastlane/
-    ├── Fastfile    # Lanes для Match и сборки
-    ├── Matchfile   # Конфигурация Match
-    ├── Appfile     # App ID и Team ID
-    └── Gemfile     # Ruby зависимости
+    ├── Fastfile
+    ├── Matchfile
+    ├── Appfile
+    └── Gemfile
 ```
 
-## Использование
+## Порядок настройки
 
-### 1. Создание сертификатов (один раз для нового приложения)
+### 1. Один раз на компанию
+
+Запустить в этом репозитории: **Actions → iOS Create Certificate → Run workflow**
+
+Создаст Distribution Certificate и сохранит в `ios-certificates`.
+
+### 2. Для каждого приложения
 
 В репозитории приложения создать `.github/workflows/setup-ios.yml`:
 
 ```yaml
-name: Setup iOS Certificates
+name: Setup iOS
 
 on:
   workflow_dispatch:
+    inputs:
+      profile_type:
+        type: choice
+        options: [adhoc, appstore]
+        default: adhoc
 
 jobs:
   setup:
-    uses: LightSideKittens/ci-workflows/.github/workflows/ios-setup-certificates.yml@main
-    secrets: inherit
-```
-
-### 2. Сборка IPA
-
-```yaml
-jobs:
-  build-ios:
-    uses: LightSideKittens/ci-workflows/.github/workflows/ios-build-ipa.yml@main
+    uses: LightSideKittens/ci-workflows/.github/workflows/ios-create-profile.yml@main
     with:
-      xcode_project_path: build/iOS/Unity-iPhone.xcodeproj
-      output_name: MyApp.ipa
+      profile_type: ${{ inputs.profile_type }}
     secrets: inherit
 ```
+
+Запустить: **Actions → Setup iOS → Run workflow**
 
 ## Required Secrets
 
 ### Organization level:
-- `GH_PAT` - GitHub Personal Access Token
-- `MATCH_PASSWORD` - Пароль шифрования сертификатов
-- `MATCH_GIT_URL` - URL репозитория сертификатов
-- `TEAM_ID` - Apple Team ID
-- `APP_STORE_CONNECT_KEY_ID` - App Store Connect API Key ID
-- `APP_STORE_CONNECT_ISSUER_ID` - App Store Connect Issuer ID
-- `APP_STORE_CONNECT_API_KEY` - Содержимое .p8 файла
+- `GH_PAT`
+- `MATCH_PASSWORD`
+- `MATCH_GIT_URL`
+- `TEAM_ID`
+- `APP_STORE_CONNECT_KEY_ID`
+- `APP_STORE_CONNECT_ISSUER_ID`
+- `APP_STORE_CONNECT_API_KEY`
 
-### Repository level:
-- `APP_IDENTIFIER` - Bundle ID приложения
+### Repository level (для каждого приложения):
+- `APP_IDENTIFIER` — Bundle ID приложения
