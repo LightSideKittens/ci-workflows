@@ -3,39 +3,11 @@ default_platform(:ios)
 platform :ios do
 
   # ============================================
-  # CERTIFICATE - Run once per company
-  # ============================================
-
-  desc "Create distribution certificate (once per company)"
-  lane :create_certificate do |options|
-    api_key = app_store_connect_api_key(
-      key_id: ENV['APP_STORE_CONNECT_API_KEY_KEY_ID'],
-      issuer_id: ENV['APP_STORE_CONNECT_API_KEY_ISSUER_ID'],
-      key_content: ENV['APP_STORE_CONNECT_API_KEY_KEY'],
-      in_house: false
-    )
-
-    force = options[:force] == true || options[:force] == "true"
-
-    # Create only certificate (no profile - use placeholder app id)
-    match(
-      type: "adhoc",
-      api_key: api_key,
-      app_identifier: "com.placeholder.certificate-only",
-      readonly: false,
-      force: force,
-      skip_provisioning_profiles: true,
-      verbose: true
-    )
-
-    UI.success "✅ Distribution certificate created!"
-  end
-
-  # ============================================
   # PROFILE - Run for each app
+  # Certificate is created automatically on first run
   # ============================================
 
-  desc "Create provisioning profile for app"
+  desc "Create provisioning profile (and certificate if needed)"
   lane :create_profile do |options|
     api_key = app_store_connect_api_key(
       key_id: ENV['APP_STORE_CONNECT_API_KEY_KEY_ID'],
