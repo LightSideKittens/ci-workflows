@@ -1,0 +1,77 @@
+name: iOS Create Profile (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      profile_type:
+        description: 'Profile type: adhoc, development, appstore'
+        required: false
+        type: string
+        default: 'adhoc'
+      force_renew:
+        description: 'Force renew existing profile'
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      GH_PAT:
+        required: true
+      MATCH_PASSWORD:
+        required: true
+      MATCH_GIT_URL:
+        required: true
+      TEAM_ID:
+        required: true
+      APP_IDENTIFIER:
+        required: true
+      APP_STORE_CONNECT_KEY_ID:
+        required: true
+      APP_STORE_CONNECT_ISSUER_ID:
+        required: true
+      APP_STORE_CONNECT_API_KEY:
+        required: true
+
+jobs:
+  create:
+    runs-on: macos-14
+    timeout-minutes: 15
+    steps:
+      - name: Checkout ci-workflows
+        uses: actions/checkout@v4
+        with:
+          repository: LightSideKittens/ci-workflows
+          token: ${{ secrets.GH_PAT }}
+          sparse-checkout: fastlane
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          working-directory: fastlane
+
+      - name: Configure Git Credentials
+        run: |
+          git config --global credential.helper store
+          echo "https://x-access-token:${{ secrets.GH_PAT }}@github.com" > ~/.git-credentials
+
+      - name: Create Provisioning Profile
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          TEAM_ID: ${{ secrets.TEAM_ID }}
+          APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+          APP_STORE_CONNECT_API_KEY_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_API_KEY_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+        run: |
+          cd fastlane
+          bundle install --quiet
+          bundle exec fastlane create_profile type:${{ inputs.profile_type }} force:${{ inputs.force_renew }}
+
+      - name: Summary
+        run: |
+          echo "## ✅ iOS Provisioning Profile Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **App ID:** ${{ secrets.APP_IDENTIFIER }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type:** ${{ inputs.profile_type }}" >> $GITHUB_STEP_SUMMARY
