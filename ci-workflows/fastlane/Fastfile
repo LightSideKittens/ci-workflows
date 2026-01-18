@@ -1,0 +1,112 @@
+default_platform(:ios)
+
+platform :ios do
+
+  # ============================================
+  # SETUP - Create certificates (run once per app)
+  # ============================================
+
+  desc "Create certificates and provisioning profiles"
+  lane :create_certificates do |options|
+    api_key = app_store_connect_api_key(
+      key_id: ENV['APP_STORE_CONNECT_API_KEY_KEY_ID'],
+      issuer_id: ENV['APP_STORE_CONNECT_API_KEY_ISSUER_ID'],
+      key_content: ENV['APP_STORE_CONNECT_API_KEY_KEY'],
+      in_house: false
+    )
+
+    cert_type = options[:type] || "adhoc"
+    force = options[:force] == true || options[:force] == "true"
+
+    match(
+      type: cert_type,
+      api_key: api_key,
+      readonly: false,
+      force: force,
+      verbose: true
+    )
+
+    UI.success "✅ #{cert_type} certificates created!"
+  end
+
+  # ============================================
+  # CI - Install certificates (readonly)
+  # ============================================
+
+  desc "Install certificates from match repo"
+  lane :install_certificates do |options|
+    setup_ci
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV['APP_STORE_CONNECT_API_KEY_KEY_ID'],
+      issuer_id: ENV['APP_STORE_CONNECT_API_KEY_ISSUER_ID'],
+      key_content: ENV['APP_STORE_CONNECT_API_KEY_KEY'],
+      in_house: false
+    )
+
+    cert_type = options[:type] || "adhoc"
+
+    match(
+      type: cert_type,
+      api_key: api_key,
+      readonly: true
+    )
+  end
+
+  # ============================================
+  # BUILD - Sign IPA for Firebase Test Lab
+  # ============================================
+
+  desc "Build signed IPA"
+  lane :build_ipa do |options|
+    install_certificates(type: "adhoc")
+
+    xcode_project = options[:xcode_project]
+    output_name = options[:output_name] || "App.ipa"
+    output_dir = options[:output_dir] || ENV['GITHUB_WORKSPACE'] || "./build"
+
+    UI.user_error!("xcode_project is required") unless xcode_project
+
+    # Disable automatic signing
+    update_code_signing_settings(
+      path: xcode_project,
+      use_automatic_signing: false,
+      team_id: ENV['TEAM_ID'],
+      code_sign_identity: "iPhone Distribution",
+      targets: ["Unity-iPhone"]
+    )
+
+    # Get provisioning profile from match
+    profile_path = ENV["sigh_#{ENV['APP_IDENTIFIER']}_adhoc_profile-path"]
+    profile_name = ENV["sigh_#{ENV['APP_IDENTIFIER']}_adhoc_profile-name"]
+
+    UI.message "Profile: #{profile_name}"
+
+    # Update project provisioning
+    update_project_provisioning(
+      xcodeproj: xcode_project,
+      profile: profile_path,
+      target_filter: "Unity-iPhone"
+    )
+
+    # Build IPA
+    build_app(
+      project: xcode_project,
+      scheme: "Unity-iPhone",
+      configuration: "Release",
+      export_method: "ad-hoc",
+      output_directory: output_dir,
+      output_name: output_name,
+      clean: true,
+      export_options: {
+        signingStyle: "manual",
+        provisioningProfiles: {
+          ENV['APP_IDENTIFIER'] => profile_name
+        }
+      }
+    )
+
+    UI.success "✅ IPA: #{lane_context[SharedValues::IPA_OUTPUT_PATH]}"
+  end
+
+end
