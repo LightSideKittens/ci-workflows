@@ -1,8 +1,6 @@
 git_url ENV["MATCH_GIT_URL"]
 storage_mode "git"
-type "adhoc"
 app_identifier ENV["APP_IDENTIFIER"]
 team_id ENV["TEAM_ID"]
 shallow_clone true
-force_for_new_devices true
 platform "ios"

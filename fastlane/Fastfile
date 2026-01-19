@@ -16,7 +16,7 @@ platform :ios do
       in_house: false
     )
 
-    profile_type = options[:type] || "adhoc"
+    profile_type = options[:type] || "appstore"
     force = options[:force] == true || options[:force] == "true"
 
     match(
@@ -45,7 +45,7 @@ platform :ios do
       in_house: false
     )
 
-    cert_type = options[:type] || "adhoc"
+    cert_type = options[:type] || "appstore"
 
     match(
       type: cert_type,
@@ -60,7 +60,9 @@ platform :ios do
 
   desc "Build signed IPA"
   lane :build_ipa do |options|
-    install_certificates(type: "adhoc")
+    profile_type = options[:type] || "appstore"
+
+    install_certificates(type: profile_type)
 
     xcode_project = options[:xcode_project]
     output_name = options[:output_name] || "App.ipa"
@@ -78,8 +80,8 @@ platform :ios do
     )
 
     # Get provisioning profile from match
-    profile_path = ENV["sigh_#{ENV['APP_IDENTIFIER']}_adhoc_profile-path"]
-    profile_name = ENV["sigh_#{ENV['APP_IDENTIFIER']}_adhoc_profile-name"]
+    profile_path = ENV["sigh_#{ENV['APP_IDENTIFIER']}_#{profile_type}_profile-path"]
+    profile_name = ENV["sigh_#{ENV['APP_IDENTIFIER']}_#{profile_type}_profile-name"]
 
     UI.message "Profile: #{profile_name}"
 
@@ -90,12 +92,20 @@ platform :ios do
       target_filter: "Unity-iPhone"
     )
 
+    # Map profile type to export method
+    export_method = case profile_type
+      when "appstore" then "app-store"
+      when "adhoc" then "ad-hoc"
+      when "development" then "development"
+      else "app-store"
+    end
+
     # Build IPA
     build_app(
       project: xcode_project,
       scheme: "Unity-iPhone",
       configuration: "Release",
-      export_method: "ad-hoc",
+      export_method: export_method,
       output_directory: output_dir,
       output_name: output_name,
       clean: true,
