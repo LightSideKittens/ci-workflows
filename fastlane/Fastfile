@@ -24,6 +24,7 @@ platform :ios do
       api_key: api_key,
       readonly: false,
       force: force,
+      force_for_new_devices: true,
       verbose: true
     )
 
