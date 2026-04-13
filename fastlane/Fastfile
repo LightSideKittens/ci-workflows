@@ -2,11 +2,6 @@ default_platform(:ios)
 
 platform :ios do
 
-  # ============================================
-  # PROFILE - Run for each app
-  # Certificate is created automatically on first run
-  # ============================================
-
   desc "Create provisioning profile (and certificate if needed)"
   lane :create_profile do |options|
     api_key = app_store_connect_api_key(
@@ -31,10 +26,6 @@ platform :ios do
     UI.success "✅ #{profile_type} profile created for #{ENV['APP_IDENTIFIER']}!"
   end
 
-  # ============================================
-  # CI - Install certificates (readonly)
-  # ============================================
-
   desc "Install certificates from match repo"
   lane :install_certificates do |options|
     setup_ci
@@ -55,10 +46,6 @@ platform :ios do
     )
   end
 
-  # ============================================
-  # BUILD - Sign IPA
-  # ============================================
-
   desc "Build signed IPA"
   lane :build_ipa do |options|
     profile_type = options[:type] || "appstore"
@@ -68,10 +55,10 @@ platform :ios do
     xcode_project = options[:xcode_project]
     output_name = options[:output_name] || "App.ipa"
     output_dir = options[:output_dir] || ENV['GITHUB_WORKSPACE'] || "./build"
+    derived_data = options[:derived_data_path]
 
     UI.user_error!("xcode_project is required") unless xcode_project
 
-    # Disable automatic signing
     update_code_signing_settings(
       path: xcode_project,
       use_automatic_signing: false,
@@ -80,20 +67,17 @@ platform :ios do
       targets: ["Unity-iPhone"]
     )
 
-    # Get provisioning profile from match
     profile_path = ENV["sigh_#{ENV['APP_IDENTIFIER']}_#{profile_type}_profile-path"]
     profile_name = ENV["sigh_#{ENV['APP_IDENTIFIER']}_#{profile_type}_profile-name"]
 
     UI.message "Profile: #{profile_name}"
 
-    # Update project provisioning
     update_project_provisioning(
       xcodeproj: xcode_project,
       profile: profile_path,
       target_filter: "Unity-iPhone"
     )
 
-    # Map profile type to export method
     export_method = case profile_type
       when "appstore" then "app-store"
       when "adhoc" then "ad-hoc"
@@ -101,22 +85,24 @@ platform :ios do
       else "app-store"
     end
 
-    # Build IPA
-    build_app(
+    build_args = {
       project: xcode_project,
       scheme: "Unity-iPhone",
       configuration: "Release",
       export_method: export_method,
       output_directory: output_dir,
       output_name: output_name,
-
       export_options: {
         signingStyle: "manual",
         provisioningProfiles: {
           ENV['APP_IDENTIFIER'] => profile_name
         }
       }
-    )
+    }
+
+    build_args[:derived_data_path] = derived_data if derived_data
+
+    build_app(build_args)
 
     UI.success "✅ IPA: #{lane_context[SharedValues::IPA_OUTPUT_PATH]}"
   end
