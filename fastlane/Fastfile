@@ -109,7 +109,7 @@ platform :ios do
       export_method: export_method,
       output_directory: output_dir,
       output_name: output_name,
-      clean: true,
+
       export_options: {
         signingStyle: "manual",
         provisioningProfiles: {
